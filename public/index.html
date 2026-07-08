@@ -6,7 +6,6 @@
     <title>The Switch</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Styles personnalisés pour l'effet de lueur de l'ampoule */
         .lightbulb {
             transition: all 0.3s ease;
             font-size: 7rem;
@@ -22,7 +21,6 @@
             opacity: 1;
             transform: scale(1.05);
         }
-        /* Style quand l'ampoule est bloquée temporairement */
         .lightbulb.cooldown {
             cursor: not-allowed;
             opacity: 0.5;
@@ -52,58 +50,51 @@
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
-        // Détection de l'adresse du serveur (Localhost ou Render)
         const SERVER_URL = window.location.hostname === 'localhost' 
             ? 'http://localhost:3000' 
             : 'https://the-switch-server.onrender.com';
 
-        // Initialisation de la connexion websocket
         const socket = io(SERVER_URL);
 
-        // Récupération des éléments de l'interface
         const body = document.getElementById('body');
         const btn = document.getElementById('the-switch');
         const statusMessage = document.getElementById('status-message');
         const clickCounter = document.getElementById('click-counter');
         const timerText = document.getElementById('timer-text');
 
-        // Variable pour gérer le compte à rebours en local
         let cooldownActive = false;
         let countdownInterval = null;
 
-        // Événement : Clic sur l'ampoule
-        btn.addEventListener('click', () => {
-            if (cooldownActive) return; // Bloque le clic visuellement côté client
-            socket.emit('click');
-        });
-
-        // Réception de l'état initial au chargement
-        socket.on('init_state', (data) => {
-            updateInterface(data.isLightOn, data.clickCount);
-        });
-
-        // Réception d'une mise à jour en temps réel suite à un clic valide
-        socket.on('update_state', (data) => {
-            updateInterface(data.isLightOn, data.clickCount);
-        });
-
-        // Si le clic a été validé ou si on doit lancer le décompte localement
-        // On déclenche le compte à rebours dès que cet utilisateur effectue un changement d'état
-        socket.on('update_state', (data) => {
-            // Note : Pour savoir si c'est CET utilisateur qui vient de cliquer, on lance le timer au moment où il clique
-        });
-
-        // Amélioration de l'écouteur de clic pour déclencher le timer directement au clic
         btn.addEventListener('click', () => {
             if (cooldownActive) return;
-            startCooldown();
+            socket.emit('click');
+            // On lance le timer immédiatement au clic pour bloquer l'interface
+            startCooldown(60);
         });
 
-        function startCooldown() {
+        socket.on('init_state', (data) => {
+            updateInterface(data.isLightOn, data.clickCount);
+            
+            // Si le serveur dit que cette IP doit encore attendre (suite à un rafraîchissement)
+            if (data.cooldownRemaining > 0) {
+                startCooldown(data.cooldownRemaining);
+            }
+        });
+
+        socket.on('update_state', (data) => {
+            updateInterface(data.isLightOn, data.clickCount);
+        });
+
+        // Si jamais le serveur rejette le clic (anti-triche synchro)
+        socket.on('click_denied', () => {
+            // Optionnel : on peut forcer la remise en place du cooldown si besoin
+        });
+
+        function startCooldown(duration) {
             cooldownActive = true;
             btn.classList.add('cooldown');
             
-            let timeLeft = 60; // 60 secondes
+            let timeLeft = duration;
             timerText.textContent = `Prochain clic dans ${timeLeft}s`;
             timerText.className = "text-amber-500 text-xs mt-8 tracking-widest uppercase font-bold animate-pulse";
 
@@ -122,7 +113,6 @@
             }, 1000);
         }
 
-        // Fonction centrale pour modifier le look de la page et du compteur
         function updateInterface(isOn, count) {
             clickCounter.textContent = `${count} CLICS`;
 
