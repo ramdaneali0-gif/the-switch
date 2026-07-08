@@ -15,9 +15,9 @@ const io = new Server(server, {
 // Servir les fichiers statiques du dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// État global de l'application
+// ÉTAT RÉINITIALISÉ POUR LE GRAND LANCEMENT 🚀
 let isLightOn = false;
-let clickCount = 0;
+let clickCount = 0; 
 
 // Stocke le moment (timestamp) du dernier clic de chaque utilisateur
 const lastClickTimes = {};
@@ -36,9 +36,11 @@ io.on('connection', (socket) => {
         const now = Date.now();
         const lastClick = lastClickTimes[socket.id] || 0;
 
-        // LIMITE : 60 000 millisecondes = 1 minute
+        // LIMITE STRICTE : 60 000 millisecondes = 1 minute
         if (now - lastClick < 60000) {
-            // Moins d'une minute s'est écoulée, on ignore le clic et on s'arrête là
+            // Moins d'une minute s'est écoulée, on refuse le clic.
+            // On renvoie un événement pour que le client sache qu'il a été refusé (sécurité)
+            socket.emit('click_denied');
             return; 
         }
 

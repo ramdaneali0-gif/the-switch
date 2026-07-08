@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Switch</title>
-    <!-- Tailwind CSS pour un design propre -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         /* Styles personnalisés pour l'effet de lueur de l'ampoule */
@@ -23,11 +22,15 @@
             opacity: 1;
             transform: scale(1.05);
         }
+        /* Style quand l'ampoule est bloquée temporairement */
+        .lightbulb.cooldown {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans transition-colors duration-500">
 
-    <!-- Header principal avec le compteur total en haut -->
     <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-2">
         <h1 class="text-white font-black text-2xl tracking-wider">THE SWITCH</h1>
         <div class="flex items-center gap-3 mt-1">
@@ -36,21 +39,17 @@
         </div>
     </header>
 
-    <!-- Zone centrale de l'ampoule -->
     <main class="flex-1 flex flex-col items-center justify-center p-4 w-full">
         <div class="relative flex flex-col items-center">
-            <!-- Notre élément Ampoule cliquable -->
             <div id="the-switch" class="lightbulb off select-none">💡</div>
-            <p class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium">1 clic maximum par minute</p>
+            <p id="timer-text" class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium transition-all duration-300">1 clic maximum par minute</p>
         </div>
     </main>
 
-    <!-- Footer discret pour équilibrer le design flex-between -->
     <footer class="py-4 text-center w-full">
         <p class="text-stone-700 text-[10px] tracking-widest uppercase">Édition Limitée</p>
     </footer>
 
-    <!-- Script Socket.io fourni par le CDN -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // Détection de l'adresse du serveur (Localhost ou Render)
@@ -66,9 +65,15 @@
         const btn = document.getElementById('the-switch');
         const statusMessage = document.getElementById('status-message');
         const clickCounter = document.getElementById('click-counter');
+        const timerText = document.getElementById('timer-text');
+
+        // Variable pour gérer le compte à rebours en local
+        let cooldownActive = false;
+        let countdownInterval = null;
 
         // Événement : Clic sur l'ampoule
         btn.addEventListener('click', () => {
+            if (cooldownActive) return; // Bloque le clic visuellement côté client
             socket.emit('click');
         });
 
@@ -77,10 +82,45 @@
             updateInterface(data.isLightOn, data.clickCount);
         });
 
-        // Réception d'une mise à jour en temps réel suite à un clic
+        // Réception d'une mise à jour en temps réel suite à un clic valide
         socket.on('update_state', (data) => {
             updateInterface(data.isLightOn, data.clickCount);
         });
+
+        // Si le clic a été validé ou si on doit lancer le décompte localement
+        // On déclenche le compte à rebours dès que cet utilisateur effectue un changement d'état
+        socket.on('update_state', (data) => {
+            // Note : Pour savoir si c'est CET utilisateur qui vient de cliquer, on lance le timer au moment où il clique
+        });
+
+        // Amélioration de l'écouteur de clic pour déclencher le timer directement au clic
+        btn.addEventListener('click', () => {
+            if (cooldownActive) return;
+            startCooldown();
+        });
+
+        function startCooldown() {
+            cooldownActive = true;
+            btn.classList.add('cooldown');
+            
+            let timeLeft = 60; // 60 secondes
+            timerText.textContent = `Prochain clic dans ${timeLeft}s`;
+            timerText.className = "text-amber-500 text-xs mt-8 tracking-widest uppercase font-bold animate-pulse";
+
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    cooldownActive = false;
+                    btn.classList.remove('cooldown');
+                    timerText.textContent = "1 clic maximum par minute";
+                    timerText.className = "text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium";
+                } else {
+                    timerText.textContent = `Prochain clic dans ${timeLeft}s`;
+                }
+            }, 1000);
+        }
 
         // Fonction centrale pour modifier le look de la page et du compteur
         function updateInterface(isOn, count) {
