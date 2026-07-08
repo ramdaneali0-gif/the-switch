@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 let isLightOn = false;
 let clickCount = 0;
 
-// Base de données en mémoire pour bloquer les auto-clickers
+// Stocke le moment (timestamp) du dernier clic de chaque utilisateur
 const lastClickTimes = {};
 
 io.on('connection', (socket) => {
@@ -36,14 +36,13 @@ io.on('connection', (socket) => {
         const now = Date.now();
         const lastClick = lastClickTimes[socket.id] || 0;
 
-        // PROTECTION ANTI-BOT : 200ms max (soit environ 5 clics par seconde max)
-        if (now - lastClick < 200) {
-            // On met à jour le temps pour pénaliser le spammer, et on s'arrête NET ici.
-            lastClickTimes[socket.id] = now;
+        // LIMITE : 60 000 millisecondes = 1 minute
+        if (now - lastClick < 60000) {
+            // Moins d'une minute s'est écoulée, on ignore le clic et on s'arrête là
             return; 
         }
 
-        // Si le clic est humain, on enregistre l'heure du clic
+        // Si le délai est respecté, on enregistre l'heure de ce nouveau clic
         lastClickTimes[socket.id] = now;
 
         // Changement d'état

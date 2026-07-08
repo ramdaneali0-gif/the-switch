@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Switch</title>
+    <!-- Tailwind CSS pour un design propre -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         /* Styles personnalisés pour l'effet de lueur de l'ampoule */
@@ -26,6 +27,7 @@
 </head>
 <body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans transition-colors duration-500">
 
+    <!-- Header principal avec le compteur total en haut -->
     <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-2">
         <h1 class="text-white font-black text-2xl tracking-wider">THE SWITCH</h1>
         <div class="flex items-center gap-3 mt-1">
@@ -34,17 +36,21 @@
         </div>
     </header>
 
+    <!-- Zone centrale de l'ampoule -->
     <main class="flex-1 flex flex-col items-center justify-center p-4 w-full">
         <div class="relative flex flex-col items-center">
+            <!-- Notre élément Ampoule cliquable -->
             <div id="the-switch" class="lightbulb off select-none">💡</div>
-            <p class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium">Cliquez pour basculer le monde</p>
+            <p class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium">1 clic maximum par minute</p>
         </div>
     </main>
 
+    <!-- Footer discret pour équilibrer le design flex-between -->
     <footer class="py-4 text-center w-full">
         <p class="text-stone-700 text-[10px] tracking-widest uppercase">Édition Limitée</p>
     </footer>
 
+    <!-- Script Socket.io fourni par le CDN -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // Détection de l'adresse du serveur (Localhost ou Render)
