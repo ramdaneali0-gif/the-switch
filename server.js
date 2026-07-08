@@ -1,93 +1,71 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", // Autorise Netlify et le local à se connecter au serveur
+        origin: "*", // Autorise les connexions de n'importe où (notamment Netlify)
         methods: ["GET", "POST"]
     }
 });
 
-// --- CONFIGURATION ---
-const PORT = 3000;
+// Servir les fichiers statiques du dossier public
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Variables globales de l'application
-let globalSwitchState = false;       // false = Éteint, true = Allumé
-const alreadyClickedIPs = new Set(); // Stocke les adresses IP qui ont déjà cliqué
+// État global de l'application
+let isLightOn = false;
+let clickCount = 0;
 
-// On dit à Express de rendre accessible tout ce qui sera dans le dossier "public"
-app.use(express.static('public'));
+// Base de données en mémoire pour bloquer les auto-clickers
+const lastClickTimes = {};
 
-// --- LOGIQUE TEMPS RÉEL (SOCKET.IO) ---
-io.on('connection', async (socket) => {
-    
-    // 1. Récupération de l'adresse IP de la personne qui se connecte
-    const userIP = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+io.on('connection', (socket) => {
+    console.log('Un utilisateur s\'est connecté :', socket.id);
 
-    // 2. Par défaut, on met des valeurs fictives pour le développement local (127.0.0.1)
-    let userCity = "Paris";
-    let userCountry = "France";
-    
-    // Si l'utilisateur n'est pas en local, on va chercher sa vraie ville/pays via son IP
-    if (userIP !== '127.0.0.1' && userIP !== '::1') {
-        try {
-            const response = await fetch(`http://ip-api.com/json/${userIP}`);
-            const data = await response.json();
-            if (data.status === 'success') {
-                userCity = data.city;
-                userCountry = data.country;
-            }
-        } catch (err) {
-            console.log("Impossible de géolocaliser l'IP, utilisation des valeurs par défaut.");
-        }
-    }
-
-    console.log(`🔌 Nouveau joueur connecté ! IP: ${userIP} (${userCity}, ${userCountry})`);
-
-    // 3. Dès qu'un joueur arrive, on lui envoie l'état du bouton et s'il a déjà cliqué ou non
+    // Envoyer l'état actuel au nouvel utilisateur dès qu'il se connecte
     socket.emit('init_state', {
-        state: globalSwitchState,
-        hasClicked: alreadyClickedIPs.has(userIP)
+        isLightOn: isLightOn,
+        clickCount: clickCount
     });
 
-    // 4. On écoute quand ce joueur clique sur le bouton
-    socket.on('switch_clicked', () => {
-        
-        // SÉCURITÉ : Si son IP est déjà dans notre liste, on refuse l'action
-        if (alreadyClickedIPs.has(userIP)) {
-            socket.emit('error_message', "Action refusée : vous avez déjà cliqué !");
-            return;
+    // Gestion du clic sur l'ampoule
+    socket.on('click', () => {
+        const now = Date.now();
+        const lastClick = lastClickTimes[socket.id] || 0;
+
+        // PROTECTION ANTI-BOT : 200ms max (soit environ 5 clics par seconde max)
+        if (now - lastClick < 200) {
+            // On met à jour le temps pour pénaliser le spammer, et on s'arrête NET ici.
+            lastClickTimes[socket.id] = now;
+            return; 
         }
 
-        // Si c'est bon, on ajoute son IP pour le bloquer définitivement
-        alreadyClickedIPs.add(userIP);
+        // Si le clic est humain, on enregistre l'heure du clic
+        lastClickTimes[socket.id] = now;
 
-        // On inverse l'interrupteur mondial
-        globalSwitchState = !globalSwitchState;
+        // Changement d'état
+        isLightOn = !isLightOn;
+        clickCount++;
 
-        // On prépare le pack de données à envoyer à tout le monde
-        const clickData = {
-            state: globalSwitchState,
-            location: {
-                city: userCity,
-                country: userCountry
-            },
-            time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            totalClicks: alreadyClickedIPs.size // Donne le nombre total de clics uniques
-        };
+        // On envoie le nouvel état mis à jour à TOUT LE MONDE en temps réel
+        io.emit('update_state', {
+            isLightOn: isLightOn,
+            clickCount: clickCount
+        });
+    });
 
-        // On envoie la mise à jour à TOUS les écrans connectés sur la Terre
-        io.emit('switch_updated', clickData);
-
-        // On envoie un ordre spécifique à CE joueur pour désactiver son bouton
-        socket.emit('disable_button');
+    // Nettoyage quand un utilisateur quitte la page
+    socket.on('disconnect', () => {
+        console.log('Un utilisateur est parti :', socket.id);
+        delete lastClickTimes[socket.id];
     });
 });
 
-// Lancement officiel du serveur web
+// Écoute sur le port fourni par Render ou 3000 en local
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Serveur actif sur http://localhost:${PORT}`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
 });

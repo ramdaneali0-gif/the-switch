@@ -3,127 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Switch - L'Interrupteur Mondial</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/style.css">
+    <title>The Switch</title>
+    <!-- Tailwind CSS pour un design propre -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Styles personnalisés pour l'effet de lueur de l'ampoule */
+        .lightbulb {
+            transition: all 0.3s ease;
+            font-size: 7rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .lightbulb.off {
+            filter: drop-shadow(0 0 0px rgba(0, 0, 0, 0));
+            opacity: 0.3;
+        }
+        .lightbulb.on {
+            filter: drop-shadow(0 0 35px #fbbf24) drop-shadow(0 0 70px #f59e0b);
+            opacity: 1;
+            transform: scale(1.05);
+        }
+    </style>
 </head>
-<body id="body" class="light-off h-screen flex overflow-hidden m-0 font-sans transition-colors duration-500">
+<body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans transition-colors duration-500">
 
-    <div class="flex-1 flex flex-col items-center justify-center p-8">
-        <h1 class="text-4xl font-black mb-12 tracking-wider uppercase">The Switch</h1>
-        
-        <button id="the-switch" class="switch-btn w-64 h-64 rounded-full border-8 text-3xl font-black uppercase tracking-widest hover:scale-105 active:scale-95 focus:outline-none shadow-2xl">
-            OFF
-        </button>
-        
-        <p id="status-message" class="mt-8 text-sm opacity-60 text-center max-w-xs leading-relaxed">
-            Cliquez pour changer l'état du monde.<br>Attention, un seul clic par personne.
-        </p>
-    </div>
-
-    <div class="w-80 sm:w-96 bg-stone-900 border-l border-stone-800 flex flex-col h-full text-white shadow-2xl">
-        <div class="p-6 border-b border-stone-800 bg-stone-950/40">
-            <h2 class="text-xl font-bold flex items-center justify-between">
-                <span>Flux Mondial</span>
-                <span id="click-counter" class="text-xs bg-amber-500 text-stone-950 px-2 py-1 rounded-full font-black">0 CLIC</span>
-            </h2>
-            <p class="text-xs text-stone-400 mt-1">Activité des utilisateurs en temps réel</p>
+    <!-- Header principal avec le compteur total en haut -->
+    <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-2">
+        <h1 class="text-white font-black text-2xl tracking-wider">THE SWITCH</h1>
+        <div class="flex items-center gap-3 mt-1">
+            <span id="status-message" class="text-stone-400 text-sm">Connexion...</span>
+            <span id="click-counter" class="text-xs bg-amber-500 text-stone-950 px-2.5 py-1 rounded-full font-black tracking-wide shadow-md">0 CLICS</span>
         </div>
+    </header>
 
-        <div id="logs-container" class="flex-1 overflow-y-auto p-4 space-y-3">
-            <div id="no-activity" class="text-center text-sm text-stone-500 my-8">Aucun clic enregistré pour le moment...</div>
+    <!-- Zone centrale de l'ampoule -->
+    <main class="flex-1 flex flex-col items-center justify-center p-4 w-full">
+        <div class="relative flex flex-col items-center">
+            <!-- Notre élément Ampoule cliquable -->
+            <div id="the-switch" class="lightbulb off select-none">💡</div>
+            <p class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium">Cliquez pour basculer le monde</p>
         </div>
-    </div>
+    </main>
 
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script>
-    // En local, on laisse vide. Quand ton serveur sera en ligne (sur Render par exemple),
-    // tu remplaceras l'adresse ci-dessous par l'URL fournie par ton hébergeur Back-end.
-   const SERVER_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://the-switch-server.onrender.com';
-    const socket = io(SERVER_URL);
+    <!-- Footer discret pour équilibrer le design flex-between -->
+    <footer class="py-4 text-center w-full">
+        <p class="text-stone-700 text-[10px] tracking-widest uppercase">Édition Limitée</p>
+    </footer>
 
-        // Récupération des éléments HTML
+    <!-- Script Socket.io fourni par le CDN -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        // Détection de l'adresse du serveur (Localhost ou Render)
+        const SERVER_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000' 
+            : 'https://the-switch-server.onrender.com';
+
+        // Initialisation de la connexion websocket
+        const socket = io(SERVER_URL);
+
+        // Récupération des éléments de l'interface
         const body = document.getElementById('body');
         const btn = document.getElementById('the-switch');
         const statusMessage = document.getElementById('status-message');
         const clickCounter = document.getElementById('click-counter');
-        const logsContainer = document.getElementById('logs-container');
-        const noActivityDiv = document.getElementById('no-activity');
 
-        // Fonction pour mettre à jour l'application visuellement (Mode ON / Mode OFF)
-        function updateVisuals(isAllumed) {
-            if (isAllumed) {
-                body.classList.remove('light-off');
-                body.classList.add('light-on');
-                btn.innerText = "ON";
-            } else {
-                body.classList.remove('light-on');
-                body.classList.add('light-off');
-                btn.innerText = "OFF";
-            }
-        }
-
-        // Événement 1 : Initialisation à l'ouverture de la page
-        socket.on('init_state', (data) => {
-            updateVisuals(data.state);
-            
-            // Si l'IP du joueur a déjà cliqué dans le passé, on bloque direct son bouton
-            if (data.hasClicked) {
-                disableMyButton();
-            }
-        });
-
-        // Événement 2 : Envoi du clic au serveur quand on appuie sur le bouton
+        // Événement : Clic sur l'ampoule
         btn.addEventListener('click', () => {
-            socket.emit('switch_clicked');
+            socket.emit('click');
         });
 
-        // Événement 3 : Réception d'une mise à jour mondiale (quand n'importe qui clique)
-        socket.on('switch_updated', (data) => {
-            // 1. On change la lumière générale du site
-            updateVisuals(data.state);
-
-            // 2. On met à jour le compteur global de clics
-            clickCounter.innerText = `${data.totalClicks} ${data.totalClicks > 1 ? 'CLICS' : 'CLIC'}`;
-
-            // 3. On vire le message "Aucun clic" si c'est le tout premier clic du serveur
-            if (noActivityDiv) noActivityDiv.remove();
-
-            // 4. On crée graphiquement la nouvelle ligne dans le panel de droite
-            const actionText = data.state ? "allumé" : "éteint";
-            const indicatorColor = data.state ? "bg-yellow-400" : "bg-stone-600";
-
-            const logLine = document.createElement('div');
-            logLine.className = "bg-stone-950/40 p-3 rounded-lg border border-stone-800/60 flex items-start space-x-3 text-sm animate-fade-in";
-            logLine.innerHTML = `
-                <span class="w-2 h-2 rounded-full ${indicatorColor} mt-1.5 flex-shrink-0 animate-ping"></span>
-                <div class="flex-1">
-                    <p class="font-medium text-stone-200">Bouton ${actionText}</p>
-                    <p class="text-xs text-stone-400 font-semibold">${data.location.city}, ${data.location.country}</p>
-                </div>
-                <span class="text-xs text-stone-500 font-mono">${data.time}</span>
-            `;
-
-            // On l'ajoute tout en haut de la liste (ordre chronologique inverse)
-            logsContainer.insertBefore(logLine, logsContainer.firstChild);
+        // Réception de l'état initial au chargement
+        socket.on('init_state', (data) => {
+            updateInterface(data.isLightOn, data.clickCount);
         });
 
-        // Événement 4 : Reçu uniquement par celui qui vient de cliquer pour désactiver son bouton
-        socket.on('disable_button', () => {
-            disableMyButton();
+        // Réception d'une mise à jour en temps réel suite à un clic
+        socket.on('update_state', (data) => {
+            updateInterface(data.isLightOn, data.clickCount);
         });
 
-        // Événement 5 : Sécurité si quelqu'un essaie de forcer le clic en modifiant le code HTML
-        socket.on('error_message', (msg) => {
-            alert(msg);
-        });
+        // Fonction centrale pour modifier le look de la page et du compteur
+        function updateInterface(isOn, count) {
+            clickCounter.textContent = `${count} CLICS`;
 
-        // Fonction pour griser le bouton et bloquer les intéractions
-        function disableMyButton() {
-            btn.disabled = true;
-            btn.classList.add('opacity-40', 'cursor-not-allowed', 'hover:scale-100', 'active:scale-100');
-            statusMessage.innerText = "Votre unique choix a été enregistré. Vous ne pouvez plus interagir.";
-            statusMessage.classList.add('text-amber-500', 'font-semibold');
+            if (isOn) {
+                btn.classList.add('on');
+                btn.classList.remove('off');
+                body.classList.remove('bg-stone-950');
+                body.classList.add('bg-stone-900');
+                statusMessage.textContent = "Lumière Allumée";
+                statusMessage.className = "text-amber-400 text-sm font-bold";
+            } else {
+                btn.classList.add('off');
+                btn.classList.remove('on');
+                body.classList.remove('bg-stone-900');
+                body.classList.add('bg-stone-950');
+                statusMessage.textContent = "Lumière Éteinte";
+                statusMessage.className = "text-stone-400 text-sm font-medium";
+            }
         }
     </script>
 </body>
