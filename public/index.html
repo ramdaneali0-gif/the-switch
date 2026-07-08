@@ -39,8 +39,7 @@
 <script>
     // En local, on laisse vide. Quand ton serveur sera en ligne (sur Render par exemple),
     // tu remplaceras l'adresse ci-dessous par l'URL fournie par ton hébergeur Back-end.
-    const SERVER_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://ton-serveur-back.onrender.com';
-    
+   const SERVER_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://the-switch-server.onrender.com';
     const socket = io(SERVER_URL);
 
         // Récupération des éléments HTML
