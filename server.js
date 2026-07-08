@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 
 const app = express();
-// Indispensable sur Render pour récupérer la vraie IP de l'utilisateur derrière leur proxy
+// Indispensable sur Render pour choper la vraie IP des utilisateurs
 app.set('trust proxy', true); 
 
 const server = http.createServer(app);
@@ -17,7 +17,7 @@ const io = new Server(server, {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// SCORE INITIALISÉ À 0 🚀
+// SCORE INITIALISÉ À 0 
 let isLightOn = false;
 let clickCount = 0; 
 
@@ -25,43 +25,43 @@ let clickCount = 0;
 const lastClickTimesByIP = {};
 
 io.on('connection', (socket) => {
-    // Récupération de la vraie adresse IP (gère le local et le cloud de Render)
+    // Récupération propre de l'IP sur Render ou en local
     const userIP = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-    console.log(`Un utilisateur s'est connecté. ID: ${socket.id} | IP: ${userIP}`);
+    console.log(`Connexion - ID: ${socket.id} | IP: ${userIP}`);
 
-    // Calcule si cet utilisateur est actuellement en cooldown au moment de sa connexion/rafraîchissement
+    // Calcul du temps restant si l'IP a déjà cliqué
     const lastClick = lastClickTimesByIP[userIP] || 0;
     const now = Date.now();
     const elapsed = now - lastClick;
     const isLocalCooldownActive = elapsed < 60000;
     const remainingTime = isLocalCooldownActive ? Math.ceil((60000 - elapsed) / 1000) : 0;
 
-    // On lui envoie l'état global ET son temps restant personnalisé
+    // Envoi de l'état global et du temps restant de l'IP
     socket.emit('init_state', {
         isLightOn: isLightOn,
         clickCount: clickCount,
         cooldownRemaining: remainingTime
     });
 
-    // Gestion du clic sur l'ampoule
+    // Gestion du clic
     socket.on('click', () => {
         const clickNow = Date.now();
         const userLastClick = lastClickTimesByIP[userIP] || 0;
 
-        // LIMITE STRICTE DE 1 MINUTE PAR IP (60 000 ms)
+        // SÉCURITÉ SERVEUR : 1 minute stricte (60 000 ms)
         if (clickNow - userLastClick < 60000) {
             socket.emit('click_denied');
             return; 
         }
 
-        // Si le délai est respecté, on bloque cette IP pour les 60 prochaines secondes
+        // Enregistrement du clic pour cette IP
         lastClickTimesByIP[userIP] = clickNow;
 
         // Changement d'état
         isLightOn = !isLightOn;
         clickCount++;
 
-        // On met à jour tout le monde
+        // Mise à jour mondiale
         io.emit('update_state', {
             isLightOn: isLightOn,
             clickCount: clickCount
@@ -69,8 +69,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('Un utilisateur s\'est déconnecté :', socket.id);
-        // ATTENTION : On ne supprime surtout pas l'IP ici ! Elle doit rester bloquée même s'il quitte/rafraîchit.
+        console.log('Déconnexion :', socket.id);
     });
 });
 

@@ -24,6 +24,7 @@
         .lightbulb.cooldown {
             cursor: not-allowed;
             opacity: 0.5;
+            pointer-events: none; /* Bloque physiquement le clic sur le navigateur */
         }
     </style>
 </head>
@@ -65,17 +66,18 @@
         let cooldownActive = false;
         let countdownInterval = null;
 
+        // UN SEUL ÉCOUTEUR DE CLIC SÉCURISÉ CÔTÉ CLIENT
         btn.addEventListener('click', () => {
-            if (cooldownActive) return;
+            if (cooldownActive) return; 
+            
             socket.emit('click');
-            // On lance le timer immédiatement au clic pour bloquer l'interface
-            startCooldown(60);
+            startCooldown(60); // Lance le blocage de 60s immédiatement
         });
 
         socket.on('init_state', (data) => {
             updateInterface(data.isLightOn, data.clickCount);
             
-            // Si le serveur dit que cette IP doit encore attendre (suite à un rafraîchissement)
+            // Si l'IP est reconnue et doit encore attendre après un refresh
             if (data.cooldownRemaining > 0) {
                 startCooldown(data.cooldownRemaining);
             }
@@ -85,9 +87,9 @@
             updateInterface(data.isLightOn, data.clickCount);
         });
 
-        // Si jamais le serveur rejette le clic (anti-triche synchro)
+        // Si le serveur refuse le clic (sécurité réseau)
         socket.on('click_denied', () => {
-            // Optionnel : on peut forcer la remise en place du cooldown si besoin
+            startCooldown(60);
         });
 
         function startCooldown(duration) {
