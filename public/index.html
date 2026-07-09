@@ -3,50 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Switch</title>
+    <title>Pixel Wars - Flux Mondial</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        .lightbulb {
-            transition: all 0.3s ease;
-            font-size: 7rem;
+        /* Grille en CSS pur pour aligner les pixels proprement */
+        #canvas-grid {
+            display: grid;
+            grid-template-columns: repeat(20, minmax(0, 1fr));
+            gap: 1px;
+            background-color: #292524; /* Couleur des lignes de séparation (stone-800) */
+        }
+        .pixel {
+            aspect-ratio: 1 / 1;
             cursor: pointer;
-            user-select: none;
+            transition: transform 0.1s ease, filter 0.1s ease;
         }
-        .lightbulb.off {
-            filter: drop-shadow(0 0 0px rgba(0, 0, 0, 0));
-            opacity: 0.3;
-        }
-        .lightbulb.on {
-            filter: drop-shadow(0 0 35px #fbbf24) drop-shadow(0 0 70px #f59e0b);
-            opacity: 1;
+        .pixel:hover {
+            filter: brightness(0.8);
             transform: scale(1.05);
+            z-index: 10;
         }
-        .lightbulb.cooldown {
+        /* Style quand la grille est bloquée pendant le cooldown */
+        .cooldown-active .pixel {
             cursor: not-allowed;
-            opacity: 0.5;
-            pointer-events: none; /* Bloque physiquement le clic sur le navigateur */
+        }
+        /* Style de la couleur sélectionnée dans la palette */
+        .color-dot.active {
+            outline: 3px solid #f59e0b; /* Liseré orange (amber-500) */
+            transform: scale(1.1);
         }
     </style>
 </head>
-<body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans transition-colors duration-500">
+<body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans text-white">
 
-    <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-2">
-        <h1 class="text-white font-black text-2xl tracking-wider">THE SWITCH</h1>
-        <div class="flex items-center gap-3 mt-1">
-            <span id="status-message" class="text-stone-400 text-sm">Connexion...</span>
-            <span id="click-counter" class="text-xs bg-amber-500 text-stone-950 px-2.5 py-1 rounded-full font-black tracking-wide shadow-md">0 CLICS</span>
-        </div>
+    <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-1">
+        <h1 class="text-white font-black text-2xl tracking-wider">PIXEL WARS</h1>
+        <p id="timer-text" class="text-stone-400 text-xs tracking-widest uppercase font-medium transition-all duration-300">1 pixel max par minute</p>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center p-4 w-full">
-        <div class="relative flex flex-col items-center">
-            <div id="the-switch" class="lightbulb off select-none">💡</div>
-            <p id="timer-text" class="text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium transition-all duration-300">1 clic maximum par minute</p>
+    <main class="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-lg gap-6">
+        
+        <div class="w-full p-2 bg-stone-900 rounded-xl shadow-2xl border border-stone-800">
+            <div id="canvas-grid" class="w-full rounded-md overflow-hidden">
+                </div>
         </div>
+
+        <div class="w-full bg-stone-900 p-4 rounded-xl border border-stone-800 flex flex-col gap-3">
+            <p class="text-[10px] text-stone-400 tracking-widest uppercase font-bold text-center">Choisissez votre couleur</p>
+            <div id="palette" class="flex flex-wrap justify-center gap-3">
+                </div>
+        </div>
+
     </main>
 
     <footer class="py-4 text-center w-full">
-        <p class="text-stone-700 text-[10px] tracking-widest uppercase">Édition Limitée</p>
+        <p class="text-stone-700 text-[10px] tracking-widest uppercase">Guerre Mondiale en Temps Réel</p>
     </footer>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -57,48 +68,109 @@
 
         const socket = io(SERVER_URL);
 
-        const body = document.getElementById('body');
-        const btn = document.getElementById('the-switch');
-        const statusMessage = document.getElementById('status-message');
-        const clickCounter = document.getElementById('click-counter');
+        const canvasGrid = document.getElementById('canvas-grid');
+        const paletteContainer = document.getElementById('palette');
         const timerText = document.getElementById('timer-text');
 
+        const GRID_SIZE = 20;
+        let selectedColor = '#ef4444'; // Rouge par défaut
         let cooldownActive = false;
         let countdownInterval = null;
 
-        // UN SEUL ÉCOUTEUR DE CLIC SÉCURISÉ CÔTÉ CLIENT
-        btn.addEventListener('click', () => {
-            if (cooldownActive) return; 
-            
-            socket.emit('click');
-            startCooldown(60); // Lance le blocage de 60s immédiatement
+        // Liste des couleurs de la palette (style r/place)
+        const colors = [
+            '#ffffff', '#e4e4e4', '#888888', '#222222', 
+            '#ffa7d1', '#e50000', '#e59500', '#a06a42', 
+            '#e5d900', '#94e044', '#02be01', '#00d3dd', 
+            '#0083c7', '#0000ea', '#cf6ee4', '#820080'
+        ];
+
+        // 1. Génération de la Palette de couleurs
+        colors.forEach(color => {
+            const dot = document.createElement('button');
+            dot.className = 'color-dot w-8 h-8 rounded-full shadow-md transition-all';
+            dot.style.backgroundColor = color;
+            if(color === selectedColor) dot.classList.add('active');
+
+            dot.addEventListener('click', () => {
+                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+                selectedColor = color;
+            });
+            paletteContainer.appendChild(dot);
         });
 
+        // 2. Initialisation de la grille vide à l'écran
+        function createBlankGrid() {
+            canvasGrid.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const pixel = document.createElement('div');
+                    pixel.className = 'pixel';
+                    pixel.dataset.row = r;
+                    pixel.dataset.col = c;
+                    pixel.style.backgroundColor = '#ffffff';
+
+                    // Événement au clic sur un carré de la grille
+                    pixel.addEventListener('click', () => {
+                        if (cooldownActive) return;
+
+                        // On envoie les coordonnées et la couleur au serveur
+                        socket.emit('place_pixel', {
+                            row: r,
+                            col: c,
+                            color: selectedColor
+                        });
+
+                        // Déclenchement immédiat du timer visuel
+                        startCooldown(60);
+                    });
+
+                    canvasGrid.appendChild(pixel);
+                }
+            }
+        }
+
+        // 3. Réception de la grille complète au chargement
         socket.on('init_state', (data) => {
-            updateInterface(data.isLightOn, data.clickCount);
-            
-            // Si l'IP est reconnue et doit encore attendre après un refresh
+            // On s'assure que la grille de carrés HTML existe
+            if(canvasGrid.children.length === 0) createBlankGrid();
+
+            // On colorie chaque carré avec les vraies couleurs du serveur
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const pixelIndex = (r * GRID_SIZE) + c;
+                    canvasGrid.children[pixelIndex].style.backgroundColor = data.grid[r][c];
+                }
+            }
+
+            // Si cette IP a déjà posé un pixel récemment (suite à un rafraîchissement)
             if (data.cooldownRemaining > 0) {
                 startCooldown(data.cooldownRemaining);
             }
         });
 
-        socket.on('update_state', (data) => {
-            updateInterface(data.isLightOn, data.clickCount);
+        // 4. Réception d'un pixel posé en direct par quelqu'un d'autre
+        socket.on('pixel_updated', (data) => {
+            const pixelIndex = (data.row * GRID_SIZE) + data.col;
+            if (canvasGrid.children[pixelIndex]) {
+                canvasGrid.children[pixelIndex].style.backgroundColor = data.color;
+            }
         });
 
-        // Si le serveur refuse le clic (sécurité réseau)
+        // Si le serveur rejette l'action (double sécurité)
         socket.on('click_denied', () => {
             startCooldown(60);
         });
 
+        // Fonction du Compte à rebours
         function startCooldown(duration) {
             cooldownActive = true;
-            btn.classList.add('cooldown');
+            canvasGrid.classList.add('cooldown-active');
             
             let timeLeft = duration;
-            timerText.textContent = `Prochain clic dans ${timeLeft}s`;
-            timerText.className = "text-amber-500 text-xs mt-8 tracking-widest uppercase font-bold animate-pulse";
+            timerText.textContent = `PROCHAIN PIXEL DANS ${timeLeft}S`;
+            timerText.className = "text-amber-500 text-xs tracking-widest uppercase font-bold animate-pulse";
 
             clearInterval(countdownInterval);
             countdownInterval = setInterval(() => {
@@ -106,33 +178,13 @@
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
                     cooldownActive = false;
-                    btn.classList.remove('cooldown');
-                    timerText.textContent = "1 clic maximum par minute";
-                    timerText.className = "text-stone-500 text-xs mt-8 tracking-widest uppercase font-medium";
+                    canvasGrid.classList.remove('cooldown-active');
+                    timerText.textContent = "1 pixel max par minute";
+                    timerText.className = "text-stone-400 text-xs tracking-widest uppercase font-medium";
                 } else {
-                    timerText.textContent = `Prochain clic dans ${timeLeft}s`;
+                    timerText.textContent = `PROCHAIN PIXEL DANS ${timeLeft}S`;
                 }
             }, 1000);
-        }
-
-        function updateInterface(isOn, count) {
-            clickCounter.textContent = `${count} CLICS`;
-
-            if (isOn) {
-                btn.classList.add('on');
-                btn.classList.remove('off');
-                body.classList.remove('bg-stone-950');
-                body.classList.add('bg-stone-900');
-                statusMessage.textContent = "Lumière Allumée";
-                statusMessage.className = "text-amber-400 text-sm font-bold";
-            } else {
-                btn.classList.add('off');
-                btn.classList.remove('on');
-                body.classList.remove('bg-stone-900');
-                body.classList.add('bg-stone-950');
-                statusMessage.textContent = "Lumière Éteinte";
-                statusMessage.className = "text-stone-400 text-sm font-medium";
-            }
         }
     </script>
 </body>
