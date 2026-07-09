@@ -3,188 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Wars - Flux Mondial</title>
+    <title>Boss Raid - MMORPG</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Grille en CSS pur pour aligner les pixels proprement */
-        #canvas-grid {
-            display: grid;
-            grid-template-columns: repeat(20, minmax(0, 1fr));
-            gap: 1px;
-            background-color: #292524; /* Couleur des lignes de séparation (stone-800) */
+        /* Animation de pulsation légère du Boss */
+        .boss-btn {
+            transition: transform 0.05s ease;
+            font-size: 8rem;
+            user-select: none;
         }
-        .pixel {
-            aspect-ratio: 1 / 1;
-            cursor: pointer;
-            transition: transform 0.1s ease, filter 0.1s ease;
-        }
-        .pixel:hover {
-            filter: brightness(0.8);
-            transform: scale(1.05);
-            z-index: 10;
-        }
-        /* Style quand la grille est bloquée pendant le cooldown */
-        .cooldown-active .pixel {
-            cursor: not-allowed;
-        }
-        /* Style de la couleur sélectionnée dans la palette */
-        .color-dot.active {
-            outline: 3px solid #f59e0b; /* Liseré orange (amber-500) */
-            transform: scale(1.1);
+        .boss-btn:active {
+            transform: scale(0.90);
         }
     </style>
 </head>
-<body id="body" class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans text-white">
+<body class="bg-slate-950 min-h-screen flex flex-col items-center justify-between font-sans text-white selection:bg-red-500">
 
-    <header class="w-full text-center py-6 border-b border-stone-900 bg-stone-950/80 backdrop-blur-md sticky top-0 z-50 flex flex-col items-center gap-1">
-        <h1 class="text-white font-black text-2xl tracking-wider">PIXEL WARS</h1>
-        <p id="timer-text" class="text-stone-400 text-xs tracking-widest uppercase font-medium transition-all duration-300">1 pixel max par minute</p>
+    <header class="w-full border-b border-slate-900 bg-slate-900/50 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div>
+            <h1 class="font-black text-xl tracking-wider text-red-500">BOSS RAID</h1>
+            <p id="system-notif" class="text-xs text-slate-400 mt-0.5">En attente du serveur...</p>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+                <span class="text-slate-500 uppercase font-bold text-[10px] block">Arme</span>
+                <span id="player-weapon" class="font-bold text-slate-200">Poings</span>
+            </div>
+            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+                <span class="text-slate-500 uppercase font-bold text-[10px] block">Mon Or</span>
+                <span id="player-gold" class="font-black text-amber-400">0 🪙</span>
+            </div>
+        </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center p-4 w-full max-w-lg gap-6">
+    <main class="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-md gap-6">
         
-        <div class="w-full p-2 bg-stone-900 rounded-xl shadow-2xl border border-stone-800">
-            <div id="canvas-grid" class="w-full rounded-md overflow-hidden">
-                </div>
+        <div class="text-center w-full">
+            <h2 id="boss-name" class="font-black text-2xl tracking-wide text-slate-100">Chargement...</h2>
+            <p id="boss-level" class="text-xs font-bold text-red-500 tracking-widest uppercase mt-1">NIVEAU 1</p>
         </div>
 
-        <div class="w-full bg-stone-900 p-4 rounded-xl border border-stone-800 flex flex-col gap-3">
-            <p class="text-[10px] text-stone-400 tracking-widest uppercase font-bold text-center">Choisissez votre couleur</p>
-            <div id="palette" class="flex flex-wrap justify-center gap-3">
-                </div>
+        <div class="w-full bg-slate-900 border border-slate-800 p-1 rounded-xl h-8 relative shadow-inner overflow-hidden">
+            <div id="hp-bar" class="bg-red-600 h-full rounded-lg transition-all duration-75 w-full"></div>
+            <span id="hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-black drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">0 / 0 HP</span>
         </div>
+
+        <div class="my-4 relative">
+            <button id="boss-button" class="boss-btn cursor-pointer focus:outline-none">👹</button>
+        </div>
+        <p class="text-[10px] text-slate-500 tracking-widest uppercase font-medium">Cliquez frénétiquement pour attaquer !</p>
 
     </main>
 
-    <footer class="py-4 text-center w-full">
-        <p class="text-stone-700 text-[10px] tracking-widest uppercase">Guerre Mondiale en Temps Réel</p>
-    </footer>
+    <section class="w-full max-w-md bg-slate-900 border-t border-slate-800 rounded-t-2xl p-4 flex flex-col gap-3 shadow-2xl">
+        <h3 class="text-xs font-black tracking-widest text-slate-400 uppercase text-center border-b border-slate-800/50 pb-2">FORGE / BOUTIQUE</h3>
+        
+        <div class="grid grid-cols-3 gap-2">
+            <button onclick="buyWeapon('wood_sword')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
+                <span class="text-xl">🪵</span>
+                <span class="text-[10px] font-bold text-slate-300">Épée Bois</span>
+                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">50 🪙</span>
+                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x2</span>
+            </button>
+            <button onclick="buyWeapon('iron_sword')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
+                <span class="text-xl">⚔️</span>
+                <span class="text-[10px] font-bold text-slate-300">Épée Fer</span>
+                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">250 🪙</span>
+                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x5</span>
+            </button>
+            <button onclick="buyWeapon('diamond_axe')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
+                <span class="text-xl">🪓</span>
+                <span class="text-[10px] font-bold text-slate-300">Hache Dia</span>
+                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">1000 🪙</span>
+                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x15</span>
+            </button>
+        </div>
+    </section>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         const SERVER_URL = window.location.hostname === 'localhost' 
             ? 'http://localhost:3000' 
-            : 'https://the-switch-server.onrender.com';
+            : 'https://the-switch-server.onrender.com'; // Laisse ton ancien nom Render, c'est ton serveur !
 
         const socket = io(SERVER_URL);
 
-        const canvasGrid = document.getElementById('canvas-grid');
-        const paletteContainer = document.getElementById('palette');
-        const timerText = document.getElementById('timer-text');
+        // Éléments DOM
+        const bossButton = document.getElementById('boss-button');
+        const bossName = document.getElementById('boss-name');
+        const bossLevel = document.getElementById('boss-level');
+        const hpBar = document.getElementById('hp-bar');
+        const hpText = document.getElementById('hp-text');
+        
+        const playerGold = document.getElementById('player-gold');
+        const playerWeapon = document.getElementById('player-weapon');
+        const systemNotif = document.getElementById('system-notif');
 
-        const GRID_SIZE = 20;
-        let selectedColor = '#ef4444'; // Rouge par défaut
-        let cooldownActive = false;
-        let countdownInterval = null;
-
-        // Liste des couleurs de la palette (style r/place)
-        const colors = [
-            '#ffffff', '#e4e4e4', '#888888', '#222222', 
-            '#ffa7d1', '#e50000', '#e59500', '#a06a42', 
-            '#e5d900', '#94e044', '#02be01', '#00d3dd', 
-            '#0083c7', '#0000ea', '#cf6ee4', '#820080'
-        ];
-
-        // 1. Génération de la Palette de couleurs
-        colors.forEach(color => {
-            const dot = document.createElement('button');
-            dot.className = 'color-dot w-8 h-8 rounded-full shadow-md transition-all';
-            dot.style.backgroundColor = color;
-            if(color === selectedColor) dot.classList.add('active');
-
-            dot.addEventListener('click', () => {
-                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
-                dot.classList.add('active');
-                selectedColor = color;
-            });
-            paletteContainer.appendChild(dot);
+        // Attaque au clic sur le boss
+        bossButton.addEventListener('click', () => {
+            socket.emit('attack_boss');
         });
 
-        // 2. Initialisation de la grille vide à l'écran
-        function createBlankGrid() {
-            canvasGrid.innerHTML = '';
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    const pixel = document.createElement('div');
-                    pixel.className = 'pixel';
-                    pixel.dataset.row = r;
-                    pixel.dataset.col = c;
-                    pixel.style.backgroundColor = '#ffffff';
+        // Initialisation du jeu
+        socket.on('init_game', (data) => {
+            systemNotif.textContent = "Connecté au Raid Mondial ⚔️";
+            systemNotif.className = "text-xs text-emerald-400 mt-0.5";
+            
+            updateBossUI(data.boss);
+            updatePlayerUI(data.player);
+        });
 
-                    // Événement au clic sur un carré de la grille
-                    pixel.addEventListener('click', () => {
-                        if (cooldownActive) return;
+        // Mise à jour de la vie en temps réel
+        socket.on('boss_updated', (data) => {
+            const percentage = (data.hp / data.maxHp) * 100;
+            hpBar.style.width = `${Math.max(0, percentage)}%`;
+            hpText.textContent = `${Math.max(0, data.hp)} / ${data.maxHp} HP`;
+        });
 
-                        // On envoie les coordonnées et la couleur au serveur
-                        socket.emit('place_pixel', {
-                            row: r,
-                            col: c,
-                            color: selectedColor
-                        });
+        // Changement de niveau du Boss
+        socket.on('boss_defeated', (data) => {
+            updateBossUI(data.boss);
+            systemNotif.textContent = data.message;
+            systemNotif.className = "text-xs text-amber-400 mt-0.5 font-bold animate-pulse";
+            
+            // Remet le texte normal après 4 secondes
+            setTimeout(() => {
+                systemNotif.textContent = "Le combat continue !";
+                systemNotif.className = "text-xs text-emerald-400 mt-0.5";
+            }, 4000);
+        });
 
-                        // Déclenchement immédiat du timer visuel
-                        startCooldown(60);
-                    });
+        // Mise à jour des données du joueur courant
+        socket.on('player_updated', (data) => {
+            updatePlayerUI(data);
+        });
 
-                    canvasGrid.appendChild(pixel);
-                }
-            }
+        // Erreurs / Succès de la boutique
+        socket.on('shop_success', (msg) => {
+            alert(msg);
+        });
+        socket.on('shop_error', (msg) => {
+            alert(msg);
+        });
+
+        // Fonctions d'affichage globales
+        function updateBossUI(bossData) {
+            bossName.textContent = bossData.name;
+            bossLevel.textContent = `NIVEAU ${bossData.level}`;
+            
+            // Changer l'émoji du boss selon son niveau pour le fun
+            const emojis = ["👹", "🐉", "💀", "👾", "🤖", "🔥"];
+            bossButton.textContent = emojis[(bossData.level - 1) % emojis.length];
+
+            const percentage = (bossData.hp / bossData.maxHp) * 100;
+            hpBar.style.width = `${percentage}%`;
+            hpText.textContent = `${bossData.hp} / ${bossData.maxHp} HP`;
         }
 
-        // 3. Réception de la grille complète au chargement
-        socket.on('init_state', (data) => {
-            // On s'assure que la grille de carrés HTML existe
-            if(canvasGrid.children.length === 0) createBlankGrid();
+        function updatePlayerUI(playerData) {
+            playerGold.textContent = `${playerData.gold} 🪙`;
+            playerWeapon.textContent = playerData.weaponName;
+        }
 
-            // On colorie chaque carré avec les vraies couleurs du serveur
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    const pixelIndex = (r * GRID_SIZE) + c;
-                    canvasGrid.children[pixelIndex].style.backgroundColor = data.grid[r][c];
-                }
-            }
-
-            // Si cette IP a déjà posé un pixel récemment (suite à un rafraîchissement)
-            if (data.cooldownRemaining > 0) {
-                startCooldown(data.cooldownRemaining);
-            }
-        });
-
-        // 4. Réception d'un pixel posé en direct par quelqu'un d'autre
-        socket.on('pixel_updated', (data) => {
-            const pixelIndex = (data.row * GRID_SIZE) + data.col;
-            if (canvasGrid.children[pixelIndex]) {
-                canvasGrid.children[pixelIndex].style.backgroundColor = data.color;
-            }
-        });
-
-        // Si le serveur rejette l'action (double sécurité)
-        socket.on('click_denied', () => {
-            startCooldown(60);
-        });
-
-        // Fonction du Compte à rebours
-        function startCooldown(duration) {
-            cooldownActive = true;
-            canvasGrid.classList.add('cooldown-active');
-            
-            let timeLeft = duration;
-            timerText.textContent = `PROCHAIN PIXEL DANS ${timeLeft}S`;
-            timerText.className = "text-amber-500 text-xs tracking-widest uppercase font-bold animate-pulse";
-
-            clearInterval(countdownInterval);
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                if (timeLeft <= 0) {
-                    clearInterval(countdownInterval);
-                    cooldownActive = false;
-                    canvasGrid.classList.remove('cooldown-active');
-                    timerText.textContent = "1 pixel max par minute";
-                    timerText.className = "text-stone-400 text-xs tracking-widest uppercase font-medium";
-                } else {
-                    timerText.textContent = `PROCHAIN PIXEL DANS ${timeLeft}S`;
-                }
-            }, 1000);
+        // Fonction appelée par les boutons HTML du shop
+        function buyWeapon(type) {
+            socket.emit('buy_weapon', type);
         }
     </script>
 </body>
