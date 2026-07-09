@@ -3,79 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boss Raid - MMORPG</title>
+    <title>Titan Raid - MMORPG</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        /* Animation de pulsation légère du Boss */
         .boss-btn {
             transition: transform 0.05s ease;
-            font-size: 8rem;
+            font-size: 9rem;
             user-select: none;
         }
         .boss-btn:active {
-            transform: scale(0.90);
+            transform: scale(0.85) rotate(3deg);
+        }
+        /* Flash rouge sur l'écran lors d'un coup critique global */
+        .crit-flash {
+            animation: flashEffect 0.2s ease-out;
+        }
+        @keyframes flashEffect {
+            0% { background-color: rgba(220, 38, 38, 0.4); }
+            100% { background-color: transparent; }
         }
     </style>
 </head>
-<body class="bg-slate-950 min-h-screen flex flex-col items-center justify-between font-sans text-white selection:bg-red-500">
+<body class="bg-stone-950 min-h-screen flex flex-col items-center justify-between font-sans text-white relative overflow-x-hidden">
 
-    <header class="w-full border-b border-slate-900 bg-slate-900/50 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+    <div id="crit-overlay" class="absolute inset-0 pointer-events-none z-40 transition-colors duration-100"></div>
+
+    <header class="w-full border-b border-stone-900 bg-stone-900/40 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <div>
-            <h1 class="font-black text-xl tracking-wider text-red-500">BOSS RAID</h1>
-            <p id="system-notif" class="text-xs text-slate-400 mt-0.5">En attente du serveur...</p>
+            <h1 class="font-black text-2xl tracking-tighter text-red-600">TITAN RAID</h1>
+            <p id="live-indicator" class="text-[10px] text-stone-500 uppercase font-black tracking-widest mt-0.5">En attente...</p>
         </div>
-        <div class="flex gap-4 items-center">
-            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
-                <span class="text-slate-500 uppercase font-bold text-[10px] block">Arme</span>
-                <span id="player-weapon" class="font-bold text-slate-200">Poings</span>
+        
+        <div class="flex gap-3">
+            <div class="bg-stone-900/80 px-3 py-1 rounded-lg border border-stone-800 text-center">
+                <span class="text-stone-500 text-[9px] block uppercase font-bold">Dégâts / Clic</span>
+                <span id="stat-dmg" class="font-bold text-sm">10</span>
             </div>
-            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
-                <span class="text-slate-500 uppercase font-bold text-[10px] block">Mon Or</span>
-                <span id="player-gold" class="font-black text-amber-400">0 🪙</span>
+            <div class="bg-stone-900/80 px-3 py-1 rounded-lg border border-stone-800 text-center">
+                <span class="text-stone-500 text-[9px] block uppercase font-bold">Chances Crit</span>
+                <span id="stat-crit" class="font-bold text-sm text-red-400">5%</span>
+            </div>
+            <div class="bg-stone-900 px-3 py-1 rounded-lg border border-stone-800 text-center min-w-[90px]">
+                <span class="text-stone-500 text-[9px] block uppercase font-bold">Trésor</span>
+                <span id="player-gold" class="font-black text-sm text-amber-400">0 🪙</span>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-md gap-6">
+    <main class="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-md gap-6 z-10">
         
         <div class="text-center w-full">
-            <h2 id="boss-name" class="font-black text-2xl tracking-wide text-slate-100">Chargement...</h2>
-            <p id="boss-level" class="text-xs font-bold text-red-500 tracking-widest uppercase mt-1">NIVEAU 1</p>
+            <h2 id="boss-name" class="font-black text-3xl tracking-tight text-stone-100">Recherche de cible...</h2>
+            <p id="boss-level" class="text-xs font-black text-red-500 tracking-widest uppercase mt-1">NIVEAU 1</p>
         </div>
 
-        <div class="w-full bg-slate-900 border border-slate-800 p-1 rounded-xl h-8 relative shadow-inner overflow-hidden">
-            <div id="hp-bar" class="bg-red-600 h-full rounded-lg transition-all duration-75 w-full"></div>
-            <span id="hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-black drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">0 / 0 HP</span>
+        <div class="w-full bg-stone-900 border border-stone-800 p-1 rounded-xl h-7 relative shadow-2xl overflow-hidden">
+            <div id="hp-bar" class="bg-gradient-to-r from-red-700 to-red-500 h-full rounded-lg transition-all duration-75 w-full"></div>
+            <span id="hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-black drop-shadow-[0_1.5px_2px_rgba(0,0,0,1)]">0 / 0 HP</span>
         </div>
 
-        <div class="my-4 relative">
-            <button id="boss-button" class="boss-btn cursor-pointer focus:outline-none">👹</button>
+        <div class="my-6 relative flex flex-col items-center">
+            <div id="damage-popup" class="absolute -top-10 font-black text-2xl opacity-0 transition-all duration-200 pointer-events-none select-none"></div>
+            <button id="boss-button" class="boss-btn cursor-pointer focus:outline-none">🌋</button>
         </div>
-        <p class="text-[10px] text-slate-500 tracking-widest uppercase font-medium">Cliquez frénétiquement pour attaquer !</p>
 
     </main>
 
-    <section class="w-full max-w-md bg-slate-900 border-t border-slate-800 rounded-t-2xl p-4 flex flex-col gap-3 shadow-2xl">
-        <h3 class="text-xs font-black tracking-widest text-slate-400 uppercase text-center border-b border-slate-800/50 pb-2">FORGE / BOUTIQUE</h3>
+    <section class="w-full max-w-md bg-stone-900 border-t border-stone-800 rounded-t-3xl p-5 flex flex-col gap-4 shadow-2xl z-10">
+        <h3 class="text-xs font-black tracking-widest text-stone-400 uppercase text-center">Améliorations de Combat</h3>
         
-        <div class="grid grid-cols-3 gap-2">
-            <button onclick="buyWeapon('wood_sword')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
-                <span class="text-xl">🪵</span>
-                <span class="text-[10px] font-bold text-slate-300">Épée Bois</span>
-                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">50 🪙</span>
-                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x2</span>
+        <div class="grid grid-cols-2 gap-3">
+            <button id="up-dmg-btn" class="bg-stone-950 border border-stone-800 p-3 rounded-2xl flex flex-col items-center gap-1 hover:border-red-600 transition cursor-pointer">
+                <span class="text-xl">💪</span>
+                <span class="text-xs font-bold text-stone-200">Force Brute</span>
+                <span class="text-[10px] text-stone-400 font-medium">+8 Dégâts de base</span>
+                <span id="up-dmg-cost" class="text-xs font-black text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-md mt-1">30 🪙</span>
             </button>
-            <button onclick="buyWeapon('iron_sword')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
-                <span class="text-xl">⚔️</span>
-                <span class="text-[10px] font-bold text-slate-300">Épée Fer</span>
-                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">250 🪙</span>
-                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x5</span>
-            </button>
-            <button onclick="buyWeapon('diamond_axe')" class="bg-slate-950 border border-slate-800 p-2 rounded-xl flex flex-col items-center gap-1 hover:border-amber-500 transition cursor-pointer">
-                <span class="text-xl">🪓</span>
-                <span class="text-[10px] font-bold text-slate-300">Hache Dia</span>
-                <span class="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">1000 🪙</span>
-                <span class="text-[8px] text-slate-500 mt-0.5">Dégâts x15</span>
+
+            <button id="up-crit-btn" class="bg-stone-950 border border-stone-800 p-3 rounded-2xl flex flex-col items-center gap-1 hover:border-red-600 transition cursor-pointer">
+                <span class="text-xl">🎯</span>
+                <span class="text-xs font-bold text-stone-200">Précision Mortelle</span>
+                <span class="text-[10px] text-stone-400 font-medium">+3% Taux Critique</span>
+                <span id="up-crit-cost" class="text-xs font-black text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-md mt-1">50 🪙</span>
             </button>
         </div>
     </section>
@@ -84,11 +93,10 @@
     <script>
         const SERVER_URL = window.location.hostname === 'localhost' 
             ? 'http://localhost:3000' 
-            : 'https://the-switch-server.onrender.com'; // Laisse ton ancien nom Render, c'est ton serveur !
+            : 'https://the-switch-server.onrender.com';
 
         const socket = io(SERVER_URL);
 
-        // Éléments DOM
         const bossButton = document.getElementById('boss-button');
         const bossName = document.getElementById('boss-name');
         const bossLevel = document.getElementById('boss-level');
@@ -96,78 +104,86 @@
         const hpText = document.getElementById('hp-text');
         
         const playerGold = document.getElementById('player-gold');
-        const playerWeapon = document.getElementById('player-weapon');
-        const systemNotif = document.getElementById('system-notif');
+        const statDmg = document.getElementById('stat-dmg');
+        const statCrit = document.getElementById('stat-crit');
+        const liveIndicator = document.getElementById('live-indicator');
+        
+        const upDmgBtn = document.getElementById('up-dmg-btn');
+        const upCritBtn = document.getElementById('up-crit-btn');
+        const upDmgCost = document.getElementById('up-dmg-cost');
+        const upCritCost = document.getElementById('up-crit-cost');
+        
+        const critOverlay = document.getElementById('crit-overlay');
+        const damagePopup = document.getElementById('damage-popup');
 
-        // Attaque au clic sur le boss
-        bossButton.addEventListener('click', () => {
-            socket.emit('attack_boss');
-        });
+        bossButton.addEventListener('click', () => socket.emit('attack_boss'));
+        upDmgBtn.addEventListener('click', () => socket.emit('upgrade_stat', 'damage'));
+        upCritBtn.addEventListener('click', () => socket.emit('upgrade_stat', 'crit'));
 
-        // Initialisation du jeu
         socket.on('init_game', (data) => {
-            systemNotif.textContent = "Connecté au Raid Mondial ⚔️";
-            systemNotif.className = "text-xs text-emerald-400 mt-0.5";
-            
+            liveIndicator.textContent = "Serveur Synchro ⚔️";
+            liveIndicator.className = "text-[10px] text-emerald-500 uppercase font-black tracking-widest mt-0.5";
             updateBossUI(data.boss);
             updatePlayerUI(data.player);
         });
 
-        // Mise à jour de la vie en temps réel
         socket.on('boss_updated', (data) => {
             const percentage = (data.hp / data.maxHp) * 100;
             hpBar.style.width = `${Math.max(0, percentage)}%`;
             hpText.textContent = `${Math.max(0, data.hp)} / ${data.maxHp} HP`;
         });
 
-        // Changement de niveau du Boss
         socket.on('boss_defeated', (data) => {
             updateBossUI(data.boss);
-            systemNotif.textContent = data.message;
-            systemNotif.className = "text-xs text-amber-400 mt-0.5 font-bold animate-pulse";
-            
-            // Remet le texte normal après 4 secondes
-            setTimeout(() => {
-                systemNotif.textContent = "Le combat continue !";
-                systemNotif.className = "text-xs text-emerald-400 mt-0.5";
-            }, 4000);
         });
 
-        // Mise à jour des données du joueur courant
         socket.on('player_updated', (data) => {
             updatePlayerUI(data);
         });
 
-        // Erreurs / Succès de la boutique
-        socket.on('shop_success', (msg) => {
-            alert(msg);
-        });
-        socket.on('shop_error', (msg) => {
-            alert(msg);
+        // Gestion des effets visuels d'impact (Mondial)
+        socket.on('damage_effect', (data) => {
+            if (data.isCrit) {
+                // Effet flash rouge sur l'écran
+                critOverlay.classList.add('crit-flash');
+                setTimeout(() => critOverlay.classList.remove('crit-flash'), 200);
+
+                // Popup text critique
+                damagePopup.textContent = `CRIT ! -${data.damage}`;
+                damagePopup.className = "absolute -top-12 font-black text-3xl text-red-500 tracking-tighter drop-shadow-md opacity-100 scale-110 transition-all duration-75";
+            } else {
+                // Popup normal
+                damagePopup.textContent = `-${data.damage}`;
+                damagePopup.className = "absolute -top-10 font-bold text-xl text-stone-300 opacity-100 scale-100 transition-all duration-75";
+            }
+
+            // Disparition douce de l'indicateur de dégât
+            setTimeout(() => {
+                damagePopup.classList.add('opacity-0', '-translate-y-4');
+            }, 100);
         });
 
-        // Fonctions d'affichage globales
         function updateBossUI(bossData) {
             bossName.textContent = bossData.name;
-            bossLevel.textContent = `NIVEAU ${bossData.level}`;
-            
-            // Changer l'émoji du boss selon son niveau pour le fun
-            const emojis = ["👹", "🐉", "💀", "👾", "🤖", "🔥"];
-            bossButton.textContent = emojis[(bossData.level - 1) % emojis.length];
+            bossLevel.textContent = `TITAN NIVEAU ${bossData.level}`;
+            bossButton.textContent = bossData.emoji;
 
             const percentage = (bossData.hp / bossData.maxHp) * 100;
             hpBar.style.width = `${percentage}%`;
             hpText.textContent = `${bossData.hp} / ${bossData.maxHp} HP`;
         }
 
-        function updatePlayerUI(playerData) {
-            playerGold.textContent = `${playerData.gold} 🪙`;
-            playerWeapon.textContent = playerData.weaponName;
-        }
+        function updatePlayerUI(p) {
+            playerGold.textContent = `${p.gold} 🪙`;
+            statDmg.textContent = p.stats.baseDmg;
+            statCrit.textContent = `${p.stats.critChance}%`;
 
-        // Fonction appelée par les boutons HTML du shop
-        function buyWeapon(type) {
-            socket.emit('buy_weapon', type);
+            // Recalcul des coûts dynamiques des upgrades locaux
+            const costDmg = Math.floor(30 * Math.pow(1.5, p.damageLevel - 1));
+            const costCrit = Math.floor(50 * Math.pow(1.6, p.critLevel - 1));
+
+            upDmgCost.textContent = `${costDmg} 🪙`;
+            upCritCost.textContent = p.stats.critChance >= 100 ? "MAX" : `${costCrit} 🪙`;
         }
     </script>
 </body>
